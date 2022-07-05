@@ -12,7 +12,8 @@ import (
 )
 
 type RepositoryBase struct {
-	collection *mongo.Collection
+	collection  *mongo.Collection
+	keyProperty string
 }
 
 func (base RepositoryBase) fillSlice(slice interface{}, cursor *mongo.Cursor) error {
@@ -140,7 +141,7 @@ func (base RepositoryBase) GetByHexID(hexID string, res interface{}) error {
 	if err != nil {
 		return err
 	}
-	if err := base.GetOne(bson.M{"_id": objID}, res); err != nil {
+	if err := base.GetOne(bson.M{base.keyProperty: objID}, res); err != nil {
 		return err
 	}
 	return nil
@@ -151,7 +152,7 @@ func (base RepositoryBase) GetByObjID(objID primitive.ObjectID, res interface{})
 	if reflect.ValueOf(res).Kind() != reflect.Ptr {
 		return errors.New("parameter res must be a pointer")
 	}
-	if err := base.GetOne(bson.M{"_id": objID}, res); err != nil {
+	if err := base.GetOne(bson.M{base.keyProperty: objID}, res); err != nil {
 		return err
 	}
 	return nil
@@ -207,7 +208,7 @@ func (base RepositoryBase) InsertOne(value interface{}) (primitive.ObjectID, err
 
 // UpdateOne : updates an document
 func (base RepositoryBase) UpdateOne(id primitive.ObjectID, update interface{}, result interface{}) error {
-	doc := base.collection.FindOneAndUpdate(context.Background(), bson.M{"_id": id}, update)
+	doc := base.collection.FindOneAndUpdate(context.Background(), bson.M{base.keyProperty: id}, update)
 	if doc.Err() != nil {
 		return doc.Err()
 	}
@@ -222,13 +223,13 @@ func (base RepositoryBase) UpdateOne(id primitive.ObjectID, update interface{}, 
 
 // ReplaceOne replace an entire document
 func (base RepositoryBase) ReplaceOne(id primitive.ObjectID, entity interface{}) (err error) {
-	_, err = base.collection.ReplaceOne(context.Background(), bson.M{"_id": id}, entity)
+	_, err = base.collection.ReplaceOne(context.Background(), bson.M{base.keyProperty: id}, entity)
 	return
 }
 
 // DeleteOne removes an elemento from database
 func (base RepositoryBase) DeleteOne(id primitive.ObjectID) error {
-	_, err := base.collection.DeleteOne(context.Background(), bson.M{"_id": id})
+	_, err := base.collection.DeleteOne(context.Background(), bson.M{base.keyProperty: id})
 	if err != nil {
 		return err
 	}
@@ -236,8 +237,9 @@ func (base RepositoryBase) DeleteOne(id primitive.ObjectID) error {
 }
 
 // NewRepositoryBase creates a new service base
-func NewRepositoryBase(database *mongo.Database, collectionName string) RepositoryBase {
+func NewRepositoryBase(database *mongo.Database, collectionName string, keyProperty string) RepositoryBase {
 	return RepositoryBase{
-		collection: database.Collection(collectionName),
+		collection:  database.Collection(collectionName),
+		keyProperty: keyProperty,
 	}
 }
