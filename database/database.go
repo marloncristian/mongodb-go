@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -11,12 +12,20 @@ import (
 )
 
 const ENV_CONNECTIONSTRING = "MONGODB_CONNECTIONSTRING"
+const ENV_DATABASENAME = "MONGODB_DATABASE"
 
 func ConnectDefault() (*mongo.Client, error) {
-	return Connect(os.Getenv(ENV_CONNECTIONSTRING))
+	return Connect(os.Getenv(ENV_CONNECTIONSTRING), os.Getenv(ENV_DATABASENAME))
 }
 
-func Connect(connectionString string) (*mongo.Client, error) {
+func Connect(connectionString string, databaseName string) (*mongo.Client, error) {
+
+	if len(connectionString) == 0 {
+		return errors.New("invalid connectionstring")
+	}
+	if len(databaseName) == 0 {
+		return errors.New("invalid database name")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*25)
 	defer cancel()
@@ -36,6 +45,6 @@ func Connect(connectionString string) (*mongo.Client, error) {
 		return nil, fmt.Errorf("unable to connect %v", err)
 	}
 
-	Database = Client.Database(os.Getenv("COSMOSDB_DATABASE"))
+	Database = Client.Database(databaseName)
 	return Client, nil
 }
