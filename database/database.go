@@ -21,10 +21,10 @@ func ConnectDefault() (*mongo.Client, error) {
 func Connect(connectionString string, databaseName string) (*mongo.Client, error) {
 
 	if len(connectionString) == 0 {
-		return errors.New("invalid connectionstring")
+		return nil, errors.New("invalid connectionstring")
 	}
 	if len(databaseName) == 0 {
-		return errors.New("invalid database name")
+		return nil, errors.New("invalid database name")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*25)
