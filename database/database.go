@@ -15,7 +15,18 @@ const ENV_CONNECTIONSTRING = "MONGODB_CONNECTIONSTRING"
 const ENV_DATABASENAME = "MONGODB_DATABASE"
 
 func ConnectDefault() (*mongo.Client, error) {
-	return Connect(os.Getenv(ENV_CONNECTIONSTRING), os.Getenv(ENV_DATABASENAME))
+
+	conn := os.Getenv(ENV_CONNECTIONSTRING)
+	if len(conn) == 0 {
+		return nil, fmt.Errorf("environment variable %v not found", ENV_CONNECTIONSTRING)
+	}
+
+	dat := os.Getenv(ENV_DATABASENAME)
+	if len(dat) == 0 {
+		return nil, fmt.Errorf("environment variable %v not found", ENV_DATABASENAME)
+	}
+
+	return Connect(conn, dat)
 }
 
 func Connect(connectionString string, databaseName string) (*mongo.Client, error) {
