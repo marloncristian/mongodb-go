@@ -68,11 +68,12 @@ func (base RepositoryBase) Aggregate(pipeline interface{}, entity interface{}) e
 	}
 
 	defer cur.Close(context.Background())
-	if v.Type().Kind() == reflect.Slice {
+	ve := v.Elem().Type().Kind()
+	if ve == reflect.Slice {
 		if err := base.fillSlice(entity, cur); err != nil {
 			return err
 		}
-	} else if v.Type().Kind() == reflect.Struct {
+	} else if ve == reflect.Struct {
 		if err := base.fillOne(entity, cur); err != nil {
 			return err
 		}
