@@ -77,7 +77,7 @@ func (base RepositoryBase) Aggregate(pipeline interface{}, entity interface{}) e
 			return err
 		}
 	} else {
-		return fmt.Errorf("invalid entity type %v", v)
+		return fmt.Errorf("invalid entity type %v", v.Type().Kind())
 	}
 
 	return nil
