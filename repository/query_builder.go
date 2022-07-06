@@ -10,7 +10,7 @@ type QueryBuilder struct {
 }
 
 type QueryBuilderOptions struct {
-	keyProperty string
+	KeyProperty string
 }
 
 func (qb QueryBuilder) Equals(property string, value interface{}) interface{} {
@@ -18,7 +18,7 @@ func (qb QueryBuilder) Equals(property string, value interface{}) interface{} {
 }
 
 func (qb QueryBuilder) EqualsID(value primitive.ObjectID) interface{} {
-	return qb.Equals(qb.Options.keyProperty, value)
+	return qb.Equals(qb.Options.KeyProperty, value)
 }
 
 func (qb QueryBuilder) EqualsHexID(value string) interface{} {
@@ -26,7 +26,7 @@ func (qb QueryBuilder) EqualsHexID(value string) interface{} {
 	if err != nil {
 		return nil
 	}
-	return qb.Equals(qb.Options.keyProperty, objID)
+	return qb.Equals(qb.Options.KeyProperty, objID)
 }
 
 func (qb QueryBuilder) Match(value map[string]interface{}) interface{} {
