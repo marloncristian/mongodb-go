@@ -61,10 +61,14 @@ func (base RepositoryBase) fill(obj interface{}, cursor *mongo.Cursor) error {
 		if err := base.fillSlice(obj, cursor); err != nil {
 			return err
 		}
-	} else if ve == reflect.Struct {
+		return nil
+	}
+
+	if ve == reflect.Struct {
 		if err := base.fillStruct(obj, cursor); err != nil {
 			return err
 		}
+		return nil
 	}
 
 	return fmt.Errorf("invalid entity type %v", ve)
