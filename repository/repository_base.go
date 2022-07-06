@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 
 	"github.com/marloncristian/mongodb-go-helper/database"
@@ -41,9 +42,23 @@ func (base RepositoryBase) fillSlice(slice interface{}, cursor *mongo.Cursor) er
 	return nil
 }
 
+func (base RepositoryBase) fillOne(entity interface{}, cursor *mongo.Cursor) error {
+	if hasNext := cursor.Next(context.Background()); !hasNext {
+		return errors.New("not found")
+	}
+	if err := cursor.Decode(entity); err != nil {
+		return err
+	}
+	if err := cursor.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Aggregate executes a aggregated command in the database
-func (base RepositoryBase) Aggregate(pipeline interface{}, slice interface{}) error {
-	if reflect.ValueOf(slice).Kind() != reflect.Ptr {
+func (base RepositoryBase) Aggregate(pipeline interface{}, entity interface{}) error {
+	v := reflect.ValueOf(entity)
+	if v.Kind() != reflect.Ptr {
 		return errors.New("parameter slice must be a pointer")
 	}
 
@@ -53,16 +68,25 @@ func (base RepositoryBase) Aggregate(pipeline interface{}, slice interface{}) er
 	}
 
 	defer cur.Close(context.Background())
-	if err := base.fillSlice(slice, cur); err != nil {
-		return err
+	if v.Type().Kind() == reflect.Slice {
+		if err := base.fillSlice(entity, cur); err != nil {
+			return err
+		}
+	} else if v.Type().Kind() == reflect.Struct {
+		if err := base.fillOne(entity, cur); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("invalid entity type %v", v)
 	}
 
 	return nil
 }
 
 // query retrieves documents by query or all
-func (base RepositoryBase) Find(query interface{}, slice interface{}) error {
-	if reflect.ValueOf(slice).Kind() != reflect.Ptr {
+func (base RepositoryBase) Find(query interface{}, entity interface{}) error {
+	v := reflect.ValueOf(entity)
+	if v.Kind() != reflect.Ptr {
 		return errors.New("parameter slice must be a pointer")
 	}
 
@@ -72,8 +96,16 @@ func (base RepositoryBase) Find(query interface{}, slice interface{}) error {
 	}
 
 	defer cur.Close(context.Background())
-	if err := base.fillSlice(slice, cur); err != nil {
-		return err
+	if v.Type().Kind() == reflect.Slice {
+		if err := base.fillSlice(entity, cur); err != nil {
+			return err
+		}
+	} else if v.Type().Kind() == reflect.Struct {
+		if err := base.fillOne(entity, cur); err != nil {
+			return err
+		}
+	} else {
+		return fmt.Errorf("invalid entity type %v", v)
 	}
 
 	return nil
