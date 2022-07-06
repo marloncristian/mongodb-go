@@ -17,12 +17,12 @@ type RepositoryBase struct {
 	keyProperty string
 }
 
-func (base RepositoryBase) fillSlice(slice interface{}, cursor *mongo.Cursor) error {
-	if reflect.ValueOf(slice).Kind() != reflect.Ptr {
+func (base RepositoryBase) fillSlice(obj interface{}, cursor *mongo.Cursor) error {
+	if reflect.ValueOf(obj).Kind() != reflect.Ptr {
 		return errors.New("parameter slice must be a pointer")
 	}
 	for cursor.Next(context.Background()) {
-		spt := reflect.ValueOf(slice)
+		spt := reflect.ValueOf(obj)
 		svl := spt.Elem()
 		sl := reflect.Indirect(spt)
 		tT := sl.Type().Elem()
@@ -42,11 +42,11 @@ func (base RepositoryBase) fillSlice(slice interface{}, cursor *mongo.Cursor) er
 	return nil
 }
 
-func (base RepositoryBase) fillOne(entity interface{}, cursor *mongo.Cursor) error {
+func (base RepositoryBase) fillStruct(obj interface{}, cursor *mongo.Cursor) error {
 	if hasNext := cursor.Next(context.Background()); !hasNext {
 		return errors.New("not found")
 	}
-	if err := cursor.Decode(entity); err != nil {
+	if err := cursor.Decode(obj); err != nil {
 		return err
 	}
 	if err := cursor.Err(); err != nil {
@@ -55,9 +55,24 @@ func (base RepositoryBase) fillOne(entity interface{}, cursor *mongo.Cursor) err
 	return nil
 }
 
+func (base RepositoryBase) fill(obj interface{}, cursor *mongo.Cursor) error {
+	ve := reflect.ValueOf(obj).Elem().Type().Kind()
+	if ve == reflect.Slice {
+		if err := base.fillSlice(obj, cursor); err != nil {
+			return err
+		}
+	} else if ve == reflect.Struct {
+		if err := base.fillStruct(obj, cursor); err != nil {
+			return err
+		}
+	}
+
+	return fmt.Errorf("invalid entity type %v", ve)
+}
+
 // Aggregate executes a aggregated command in the database
-func (base RepositoryBase) Aggregate(pipeline interface{}, entity interface{}) error {
-	v := reflect.ValueOf(entity)
+func (base RepositoryBase) Aggregate(pipeline interface{}, obj interface{}) error {
+	v := reflect.ValueOf(obj)
 	if v.Kind() != reflect.Ptr {
 		return errors.New("parameter slice must be a pointer")
 	}
@@ -68,25 +83,17 @@ func (base RepositoryBase) Aggregate(pipeline interface{}, entity interface{}) e
 	}
 
 	defer cur.Close(context.Background())
-	ve := v.Elem().Type().Kind()
-	if ve == reflect.Slice {
-		if err := base.fillSlice(entity, cur); err != nil {
-			return err
-		}
-	} else if ve == reflect.Struct {
-		if err := base.fillOne(entity, cur); err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("invalid entity type %v", ve)
+
+	if err := base.fill(obj, cur); err != nil {
+		return err
 	}
 
 	return nil
 }
 
 // query retrieves documents by query or all
-func (base RepositoryBase) Find(query interface{}, entity interface{}) error {
-	v := reflect.ValueOf(entity)
+func (base RepositoryBase) Find(query interface{}, obj interface{}) error {
+	v := reflect.ValueOf(obj)
 	if v.Kind() != reflect.Ptr {
 		return errors.New("parameter slice must be a pointer")
 	}
@@ -97,16 +104,9 @@ func (base RepositoryBase) Find(query interface{}, entity interface{}) error {
 	}
 
 	defer cur.Close(context.Background())
-	if v.Type().Kind() == reflect.Slice {
-		if err := base.fillSlice(entity, cur); err != nil {
-			return err
-		}
-	} else if v.Type().Kind() == reflect.Struct {
-		if err := base.fillOne(entity, cur); err != nil {
-			return err
-		}
-	} else {
-		return fmt.Errorf("invalid entity type %v", v)
+
+	if err := base.fill(obj, cur); err != nil {
+		return err
 	}
 
 	return nil
@@ -131,23 +131,23 @@ func (base RepositoryBase) InsertOne(value interface{}) (primitive.ObjectID, err
 }
 
 // UpdateOne : updates an document
-func (base RepositoryBase) UpdateOne(query interface{}, update interface{}, result interface{}) error {
+func (base RepositoryBase) UpdateOne(query interface{}, update interface{}, obj interface{}) error {
 	doc := base.collection.FindOneAndUpdate(context.Background(), query, update)
 	if doc.Err() != nil {
 		return doc.Err()
 	}
-	if result == nil {
+	if obj == nil {
 		return nil
 	}
-	if err := doc.Decode(result); err != nil {
+	if err := doc.Decode(obj); err != nil {
 		return err
 	}
 	return nil
 }
 
 // ReplaceOne replace an entire document
-func (base RepositoryBase) ReplaceOne(query interface{}, entity interface{}) (err error) {
-	_, err = base.collection.ReplaceOne(context.Background(), query, entity)
+func (base RepositoryBase) ReplaceOne(query interface{}, obj interface{}) (err error) {
+	_, err = base.collection.ReplaceOne(context.Background(), query, obj)
 	return
 }
 
