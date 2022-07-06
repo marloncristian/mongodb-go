@@ -5,10 +5,10 @@ import (
 	"errors"
 	"reflect"
 
+	"github.com/marloncristian/mongodb-go-helper/database"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type RepositoryBase struct {
@@ -47,7 +47,7 @@ func (base RepositoryBase) Aggregate(pipeline interface{}, slice interface{}) er
 		return errors.New("parameter slice must be a pointer")
 	}
 
-	cur, err := base.collection.Aggregate(nil, pipeline)
+	cur, err := base.collection.Aggregate(context.Background(), pipeline)
 	if err != nil {
 		return err
 	}
@@ -61,12 +61,12 @@ func (base RepositoryBase) Aggregate(pipeline interface{}, slice interface{}) er
 }
 
 // query retrieves documents by query or all
-func (base RepositoryBase) query(query interface{}, slice interface{}) error {
+func (base RepositoryBase) Find(query interface{}, slice interface{}) error {
 	if reflect.ValueOf(slice).Kind() != reflect.Ptr {
 		return errors.New("parameter slice must be a pointer")
 	}
 
-	cur, err := base.collection.Find(nil, query)
+	cur, err := base.collection.Find(context.Background(), query)
 	if err != nil {
 		return err
 	}
@@ -77,119 +77,10 @@ func (base RepositoryBase) query(query interface{}, slice interface{}) error {
 	}
 
 	return nil
-}
-
-// queryAndPage retrieves an specific page of a document query
-func (base RepositoryBase) queryAndPage(query interface{}, slice interface{}, skip int64, limit int64) error {
-	if reflect.ValueOf(slice).Kind() != reflect.Ptr {
-		return errors.New("parameter slice must be a pointer")
-	}
-
-	opt := options.Find()
-	opt.SetLimit(limit)
-	opt.SetSkip(skip)
-
-	cur, err := base.collection.Find(context.Background(), query, opt)
-	if err != nil {
-		return err
-	}
-
-	defer cur.Close(context.Background())
-	if err := base.fillSlice(slice, cur); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GetOne : returns a single instance of an object
-func (base RepositoryBase) GetOne(query interface{}, res interface{}) error {
-	if reflect.ValueOf(res).Kind() != reflect.Ptr {
-		return errors.New("parameter res must be a pointer")
-	}
-
-	opts := options.Find()
-	opts.SetLimit(1)
-
-	cur, err := base.collection.Find(context.Background(), query, opts)
-	if err != nil {
-		return err
-	}
-	defer cur.Close(context.Background())
-
-	if hasNext := cur.Next(context.Background()); !hasNext {
-		return errors.New("not found")
-	}
-
-	if err := cur.Decode(res); err != nil {
-		return err
-	}
-
-	if err := cur.Err(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// GetByHexID returns an especific element its hexa string representation
-func (base RepositoryBase) GetByHexID(hexID string, res interface{}) error {
-	if reflect.ValueOf(res).Kind() != reflect.Ptr {
-		return errors.New("parameter res must be a pointer")
-	}
-	objID, err := primitive.ObjectIDFromHex(hexID)
-	if err != nil {
-		return err
-	}
-	if err := base.GetOne(bson.M{base.keyProperty: objID}, res); err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetByObjID returns an especific element its objectiid
-func (base RepositoryBase) GetByObjID(objID primitive.ObjectID, res interface{}) error {
-	if reflect.ValueOf(res).Kind() != reflect.Ptr {
-		return errors.New("parameter res must be a pointer")
-	}
-	if err := base.GetOne(bson.M{base.keyProperty: objID}, res); err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetAll : returns all documents from collection
-func (base RepositoryBase) GetAll(slice interface{}) error {
-	if reflect.ValueOf(slice).Kind() != reflect.Ptr {
-		return errors.New("parameter slice must be a pointer")
-	}
-	if err := base.query(bson.D{{}}, slice); err != nil {
-		return err
-	}
-	return nil
-}
-
-// GetAllWithSkipLimit retrieves chunks of information defined by parameters skip and limit
-func (base RepositoryBase) GetAllWithSkipLimit(slice interface{}, skip int64, limit int64) error {
-	return base.queryAndPage(bson.D{{}}, slice, skip, limit)
-}
-
-// GetWithSkipLimit returns a filtered and paged document list from repository
-func (base RepositoryBase) GetWithSkipLimit(query interface{}, slice interface{}, skip int64, limit int64) error {
-	return base.queryAndPage(query, slice, skip, limit)
 }
 
 // Count returns a count of all documents in repository
-func (base RepositoryBase) Count() (int64, error) {
-	cnt, err := base.collection.CountDocuments(nil, bson.D{{}})
-	if err != nil {
-		return 0, err
-	}
-	return cnt, nil
-}
-
-// CountWithQuery returns a count of filtered documents
-func (base RepositoryBase) CountWithQuery(query interface{}) (int64, error) {
+func (base RepositoryBase) Count(query interface{}) (int64, error) {
 	cnt, err := base.collection.CountDocuments(context.Background(), query)
 	if err != nil {
 		return 0, err
@@ -207,8 +98,8 @@ func (base RepositoryBase) InsertOne(value interface{}) (primitive.ObjectID, err
 }
 
 // UpdateOne : updates an document
-func (base RepositoryBase) UpdateOne(id primitive.ObjectID, update interface{}, result interface{}) error {
-	doc := base.collection.FindOneAndUpdate(context.Background(), bson.M{base.keyProperty: id}, update)
+func (base RepositoryBase) UpdateOne(query interface{}, update interface{}, result interface{}) error {
+	doc := base.collection.FindOneAndUpdate(context.Background(), query, update)
 	if doc.Err() != nil {
 		return doc.Err()
 	}
@@ -222,8 +113,8 @@ func (base RepositoryBase) UpdateOne(id primitive.ObjectID, update interface{}, 
 }
 
 // ReplaceOne replace an entire document
-func (base RepositoryBase) ReplaceOne(id primitive.ObjectID, entity interface{}) (err error) {
-	_, err = base.collection.ReplaceOne(context.Background(), bson.M{base.keyProperty: id}, entity)
+func (base RepositoryBase) ReplaceOne(query interface{}, entity interface{}) (err error) {
+	_, err = base.collection.ReplaceOne(context.Background(), query, entity)
 	return
 }
 
@@ -237,9 +128,8 @@ func (base RepositoryBase) DeleteOne(id primitive.ObjectID) error {
 }
 
 // NewRepositoryBase creates a new service base
-func NewRepositoryBase(database *mongo.Database, collectionName string, keyProperty string) RepositoryBase {
+func NewRepositoryBase(collectionName string) RepositoryBase {
 	return RepositoryBase{
-		collection:  database.Collection(collectionName),
-		keyProperty: keyProperty,
+		collection: database.Database.Collection(collectionName),
 	}
 }
